@@ -3,8 +3,8 @@ import csv
 def converter_id(id_sensor):
     """Converte o ID do sensor de hex para decimal e binário."""
 
-    decimal = int(id_sensor, 16)        # hex → decimal
-    binario = bin(decimal).replace("0b", "")  # decimal → binário
+    decimal = int(id_sensor, 16)        # hex -> decimal
+    binario = bin(decimal).replace("0b", "")  # decimal -> binário
 
     print(f"  Hex:     {id_sensor}")
     print(f"  Decimal: {decimal}")
