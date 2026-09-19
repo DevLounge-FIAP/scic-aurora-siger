@@ -1,8 +1,6 @@
 import csv
 
 def converter_id(id_sensor):
-    """Converte o ID do sensor de hex para decimal e binário."""
-
     decimal = int(id_sensor, 16)        # hex -> decimal
     binario = bin(decimal).replace("0b", "")  # decimal -> binário
 
@@ -11,8 +9,6 @@ def converter_id(id_sensor):
     print(f"  Binário: {binario}")
 
 def calcular_eletrico(nome, tensao, corrente):
-    """Calcula e exibe potência e resistência de um módulo."""
-
     potencia    = tensao * corrente
     resistencia = tensao / corrente
 
@@ -23,8 +19,6 @@ def calcular_eletrico(nome, tensao, corrente):
     print(f"  Resistência: {round(resistencia, 2)} Ω")
 
 def mostrar_conversoes():
-    """Lê o CSV e converte o ID de cada sensor."""
-
     print("\n=== CONVERSÃO DE BASES — SENSORES DA COLÔNIA ===")
 
     with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
@@ -35,8 +29,6 @@ def mostrar_conversoes():
 
 
 def mostrar_calculos():
-    """Lê o CSV e calcula a parte elétrica de cada módulo."""
-
     print("\n=== ANÁLISE ELÉTRICA — MÓDULOS DA COLÔNIA ===")
 
     with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
