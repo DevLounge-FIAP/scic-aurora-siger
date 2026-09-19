@@ -1,0 +1,6 @@
+nome_modulo,tipo_modulo,id_sensor,latencia_observada_ms,latencia_prevista_ms,tensao_v,corrente_a,status,prioridade,ciclo
+Suporte Vital,suporte_medico,0xA1F3,48.5,45.0,12.0,3.8,ativo,1,1
+Energia,armazenamento_dados,0xB2C4,55.2,45.0,24.0,8.5,alerta,2,1
+Comunicacao,comunicacao,0xC3D5,43.0,45.0,5.0,1.2,ativo,3,1
+Habitat,habitacao,0xD4E6,62.1,45.0,12.0,2.5,manutencao,4,1
+Laboratorio,laboratorio,0xE5F7,44.8,45.0,9.0,2.0,ativo,5,1
