@@ -1,10 +1,10 @@
 import csv
 
-def converter_id(id_sensor):
-    decimal = int(id_sensor, 16)        # hex -> decimal
+def converter_id(sensor_hex_id):
+    decimal = int(sensor_hex_id, 16)        # hex -> decimal
     binario = bin(decimal).replace("0b", "")  # decimal -> binário
 
-    print(f"  Hex:     {id_sensor}")
+    print(f"  Hex:     {sensor_hex_id}")
     print(f"  Decimal: {decimal}")
     print(f"  Binário: {binario}")
 
@@ -24,8 +24,8 @@ def mostrar_conversoes():
     with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
         leitor = csv.DictReader(f)
         for linha in leitor:
-            print(f"\n  [{linha['nome_modulo']}]")
-            converter_id(linha["id_sensor"])
+            print(f"\n  [{linha['modulo_nome']}]")
+            converter_id(linha["sensor_hex_id"])
 
 
 def mostrar_calculos():
@@ -36,7 +36,7 @@ def mostrar_calculos():
         for linha in leitor:
             print()
             calcular_eletrico(
-                nome     = linha["nome_modulo"],
+                nome     = linha["modulo_nome"],
                 tensao   = float(linha["tensao_v"]),
                 corrente = float(linha["corrente_a"]),
             )
