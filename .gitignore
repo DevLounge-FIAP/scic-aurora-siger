@@ -1,0 +1,26 @@
+# Ambientes Virtuais (Python)
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Dependências (Node / JS)
+node_modules/
+dist/
+build/
+
+# Configurações de IDEs
+.vscode/
+.idea/
+*.swp
+
+# Arquivos de Sistema
+.DS_Store
+Thumbs.db
+
+# Segredos e Variáveis de Ambiente (CRÍTICO)
+.env
+.env.local
+*.pem
+*.key
