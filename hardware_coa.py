@@ -19,7 +19,7 @@ def calcular_eletrico(nome, tensao, corrente):
     print(f"  Resistência: {round(resistencia, 2)} Ω")
 
 def mostrar_conversoes():
-    print("\n=== CONVERSÃO DE BASES — SENSORES DA COLÔNIA ===")
+    print("\n=== CONVERSÃO DE BASES - SENSORES DA COLÔNIA ===")
 
     with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
         leitor = csv.DictReader(f)
@@ -29,7 +29,7 @@ def mostrar_conversoes():
 
 
 def mostrar_calculos():
-    print("\n=== ANÁLISE ELÉTRICA — MÓDULOS DA COLÔNIA ===")
+    print("\n=== ANÁLISE ELÉTRICA - MÓDULOS DA COLÔNIA ===")
 
     with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
         leitor = csv.DictReader(f)
@@ -43,7 +43,7 @@ def mostrar_calculos():
 
 def menu():
     while True:
-        print("\n=== HARDWARE COA — Aurora Siger ===")
+        print("\n=== HARDWARE COA - Aurora Siger ===")
         print("1 - Converter IDs dos sensores")
         print("2 - Calcular potência e resistência")
         print("3 - Executar tudo")

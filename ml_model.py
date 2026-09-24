@@ -1,5 +1,5 @@
 """
-Módulo de Aprendizado de Máquina e Regressão Linear — Missão Aurora Siger (SCIC Fase 6)
+Módulo de Aprendizado de Máquina e Regressão Linear - Missão Aurora Siger (SCIC Fase 6)
 Responsável: Aelton (Membro 2 - Semana 2)
 
 Descrição:
@@ -170,7 +170,7 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
 
     relatorio = []
     relatorio.append(f"\n=======================================================")
-    relatorio.append(f"   AVALIAÇÃO DE PERFORMANCE — {rotulo.upper()}")
+    relatorio.append(f"   AVALIAÇÃO DE PERFORMANCE - {rotulo.upper()}")
     relatorio.append(f"=======================================================")
     relatorio.append(f"  • MAE  (Erro Médio Absoluto):        {mae:.2f} ms")
     relatorio.append(f"  • MSE  (Erro Quadrático Médio):       {mse:.2f} ms²")
@@ -264,7 +264,7 @@ def gerar_graficos(
                 bbox=dict(boxstyle="round,pad=0.25", facecolor="white", alpha=0.8, edgecolor="#999999")
             )
 
-    ax.set_title("Calibração de Latência: Valores Observados vs. Previstos\nSCIC — Missão Aurora Siger", pad=12)
+    ax.set_title("Calibração de Latência: Valores Observados vs. Previstos\nSCIC - Missão Aurora Siger", pad=12)
     ax.set_xlabel("Latência Observada (ms)")
     ax.set_ylabel("Latência Prevista (ms)")
     ax.set_xlim(min_val, max_val)
@@ -344,7 +344,7 @@ def gerar_graficos(
     ax2.legend(loc="upper left")
     ax2.grid(True, linestyle=":", alpha=0.6)
 
-    fig.suptitle("Painel de Avaliação da Performance Operacional — SCIC Aurora Siger", fontsize=13, weight="bold")
+    fig.suptitle("Painel de Avaliação da Performance Operacional - SCIC Aurora Siger", fontsize=13, weight="bold")
     fig.tight_layout()
     fig.savefig(caminho_painel, dpi=300)
     plt.close(fig)
@@ -406,8 +406,8 @@ def executar_pipeline_completo(
     """
     if exibir_detalhes:
         print("\n=======================================================")
-        print("  INICIANDO PIPELINE DE MACHINE LEARNING — SEMANA 2")
-        print("  Missão Aurora Siger — Regressão Linear de Latência")
+        print("  INICIANDO PIPELINE DE MACHINE LEARNING - SEMANA 2")
+        print("  Missão Aurora Siger - Regressão Linear de Latência")
         print("=======================================================")
 
     # 1. Carga
@@ -480,7 +480,7 @@ def menu():
     """
     while True:
         print("\n" + "="*50)
-        print("   SCIC — MÓDULO DE MACHINE LEARNING (Semana 2)")
+        print("   SCIC - MÓDULO DE MACHINE LEARNING (Semana 2)")
         print("="*50)
         print("1 - Treinar modelo e exibir métricas de performance")
         print("2 - Gerar e salvar gráficos operacionais (Figura 3)")
