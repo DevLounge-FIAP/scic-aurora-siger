@@ -21,7 +21,7 @@ def calcular_eletrico(nome, tensao, corrente):
 def mostrar_conversoes():
     print("\n=== CONVERSÃO DE BASES - SENSORES DA COLÔNIA ===")
 
-    with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
+    with open("dados_aurora_siger.csv", "r", encoding="utf-8-sig") as f:
         leitor = csv.DictReader(f)
         for linha in leitor:
             print(f"\n  [{linha['modulo_nome']}]")
@@ -31,7 +31,7 @@ def mostrar_conversoes():
 def mostrar_calculos():
     print("\n=== ANÁLISE ELÉTRICA - MÓDULOS DA COLÔNIA ===")
 
-    with open("dados_aurora_siger.csv", "r", encoding="utf-8") as f:
+    with open("dados_aurora_siger.csv", "r", encoding="utf-8-sig") as f:
         leitor = csv.DictReader(f)
         for linha in leitor:
             print()
