@@ -6,8 +6,8 @@ Descrição:
     Este módulo implementa o pipeline de previsão de latência de transmissão dos módulos
     da colônia marciana Aurora Siger utilizando Regressão Linear com Scikit-Learn.
     Realiza a divisão entre dados de treino e teste, calcula obrigatoriamente as métricas
-    MAE, MSE, RMSE e R², exporta gráficos de dispersão e análise de resíduos (conforme Figura 3
-    do manual oficial) e atualiza o dataset oficial com a coluna calculada 'latencia_prevista_ms'.
+    MAE, MSE, RMSE e R², exporta gráficos de dispersão e análise de resíduos (conforme Figura 2
+    do enunciado) e atualiza o dataset oficial com a coluna calculada 'latencia_prevista_ms'.
 """
 
 import os
@@ -34,11 +34,20 @@ plt.rcParams.update({
     "figure.titlesize": 14
 })
 
-# Caminhos padrão do projeto
-ARQUIVO_DADOS_PADRAO = "dados_aurora_siger.csv"
-PASTA_GRAFICOS_PADRAO = "graficos_ou_imagens"
+# Caminhos ancorados na pasta deste arquivo: funcionam mesmo se o programa
+# for executado de outra pasta (ex.: python pasta/codigo_fonte.py).
+PASTA_PROJETO = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_DADOS_PADRAO = os.path.join(PASTA_PROJETO, "dados_aurora_siger.csv")
+PASTA_GRAFICOS_PADRAO = os.path.join(PASTA_PROJETO, "graficos_ou_imagens")
+
 FEATURES_PADRAO = ["tensao_v", "corrente_a"]
 TARGET_PADRAO = "latencia_observada_ms"
+
+# Acima dessa razão RMSE/MAE, consideramos que há erros grandes concentrados em poucos módulos
+LIMIAR_RAZAO_RMSE_MAE = 1.5
+
+# Colunas da Semana 3 dependem da previsão; se a previsão mudar, elas ficam obsoletas
+COLUNAS_DERIVADAS_SEMANA_3 = ["erro_absoluto", "erro_relativo", "diferenca_ms", "severidade_alerta"]
 
 
 def carregar_dados(caminho_csv: str = ARQUIVO_DADOS_PADRAO) -> pd.DataFrame:
@@ -53,14 +62,14 @@ def carregar_dados(caminho_csv: str = ARQUIVO_DADOS_PADRAO) -> pd.DataFrame:
     """
     if not os.path.exists(caminho_csv):
         raise FileNotFoundError(f"Arquivo de dados não encontrado: '{caminho_csv}'")
-    
+
     df = pd.read_csv(caminho_csv)
-    
+
     colunas_obrigatorias = FEATURES_PADRAO + [TARGET_PADRAO]
     for col in colunas_obrigatorias:
         if col not in df.columns:
             raise ValueError(f"Coluna obrigatória '{col}' ausente no arquivo '{caminho_csv}'")
-            
+
     return df
 
 
@@ -92,7 +101,7 @@ def preparar_dados(
     y = df[target]
 
     n_amostras = len(df)
-    
+
     # Ajuste automático de test_size para bases pequenas garantindo no mínimo 2 amostras de teste
     if test_size is None:
         if n_amostras <= 5:
@@ -152,7 +161,7 @@ def calcular_metricas(y_real, y_pred) -> dict:
 def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> str:
     """
     Gera uma interpretação crítica das métricas calculadas, conforme
-    exigência expressa da Seção 5.3 do manual oficial da Fase 6.
+    exigência da Seção 1.3 do enunciado da Fase 6.
 
     Args:
         metricas (dict): Dicionário retornado por calcular_metricas.
@@ -166,7 +175,9 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
     rmse = metricas["RMSE"]
     r2 = metricas["R2"]
 
-    diferenca_rmse_mae = round(rmse - mae, 4)
+    # Razão RMSE/MAE: com erros "bem comportados" fica perto de 1.25.
+    # Quanto maior, mais o RMSE está sendo puxado por poucos erros grandes.
+    razao_rmse_mae = rmse / mae if mae > 0 else 1.0
 
     relatorio = []
     relatorio.append(f"\n=======================================================")
@@ -177,8 +188,8 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
     relatorio.append(f"  • RMSE (Raiz do Erro Quadrático):    {rmse:.2f} ms")
     relatorio.append(f"  • R²   (Coeficiente de Determinação): {r2:.4f}")
     relatorio.append(f"-------------------------------------------------------")
-    relatorio.append(f"  DIAGNÓSTICO CRÍTICO CONFORME MANUAL OFICIAL (SEC. 5.3):")
-    
+    relatorio.append(f"  DIAGNÓSTICO CRÍTICO (ENUNCIADO, SEÇÃO 1.3):")
+
     if r2 >= 0.85:
         relatorio.append(f"  - O R² ({r2:.2f}) indica excelente capacidade de explicação da variabilidade da latência.")
     elif r2 >= 0.50:
@@ -186,14 +197,21 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
     else:
         relatorio.append(f"  - O R² ({r2:.2f}) aponta que fatores operacionais adicionais influenciam a latência.")
 
-    if diferenca_rmse_mae > 1.5:
+    if razao_rmse_mae > LIMIAR_RAZAO_RMSE_MAE:
         relatorio.append(
-            f"  - ATENÇÃO: A disparidade entre RMSE ({rmse:.2f} ms) e MAE ({mae:.2f} ms) [Δ = {diferenca_rmse_mae:.2f} ms]"
-            f"\n    evidencia a ocorrência de erros residuais expressivos em módulos específicos."
-            f"\n    O RMSE penaliza com maior rigor anomalias críticas que ameaçam o enlace da colônia."
+            f"  - ATENÇÃO: o RMSE ({rmse:.2f} ms) é {razao_rmse_mae:.2f}x o MAE ({mae:.2f} ms)"
+            f"\n    (limite de referência: {LIMIAR_RAZAO_RMSE_MAE:.1f}x). Isso evidencia erros grandes"
+            f"\n    concentrados em poucos módulos. O RMSE penaliza com mais rigor esses desvios críticos."
         )
     else:
-        relatorio.append(f"  - Os erros residuais são homogêneos (RMSE próximo a MAE, sem desvios aberrantes).")
+        relatorio.append(
+            f"  - Os erros são homogêneos: RMSE = {razao_rmse_mae:.2f}x o MAE, sem desvios aberrantes."
+        )
+
+    relatorio.append(
+        f"  - LEMBRETE: R² alto NÃO significa modelo perfeito. Um único número não basta;"
+        f"\n    avalie MAE, RMSE, R² e os gráficos de resíduos em conjunto."
+    )
     relatorio.append(f"=======================================================\n")
 
     return "\n".join(relatorio)
@@ -209,7 +227,7 @@ def gerar_graficos(
     Gera e exporta para a pasta designada os gráficos de performance exigidos:
     1. Gráfico de Dispersão: Valores Reais vs. Valores Previstos (com linha ideal y = x).
     2. Gráfico de Análise de Resíduos: Dispersão dos resíduos (y - y_hat) com linha zero.
-    3. Painel Integrado de Performance Operacional (Figura 3 do manual).
+    3. Painel Integrado de Performance Operacional (Figura 2 do enunciado).
 
     Args:
         y_real: Vetor de valores observados.
@@ -234,7 +252,7 @@ def gerar_graficos(
     fig, ax = plt.subplots(figsize=(7, 6))
 
     ax.scatter(y_real, y_pred, color="#1f77b4", s=90, edgecolor="black", alpha=0.85, zorder=5, label="Módulos da Colônia")
-    
+
     # Linha ideal de 45 graus (y = x)
     min_val = min(y_real.min(), y_pred.min()) - 3
     max_val = max(y_real.max(), y_pred.max()) + 3
@@ -271,7 +289,7 @@ def gerar_graficos(
     ax.set_ylim(min_val, max_val)
     ax.legend(loc="upper left")
     ax.grid(True, linestyle=":", alpha=0.6)
-    
+
     fig.tight_layout()
     fig.savefig(caminho_dispersao, dpi=300)
     plt.close(fig)
@@ -321,7 +339,7 @@ def gerar_graficos(
     caminhos_gerados.append(caminho_residuos)
 
     # -------------------------------------------------------------
-    # 3. Painel Integrado de Performance Operacional (Painel da Figura 3)
+    # 3. Painel Integrado de Performance Operacional (Painel da Figura 2)
     # -------------------------------------------------------------
     caminho_painel = os.path.join(pasta_saida, "painel_performance_ml.png")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5))
@@ -364,6 +382,9 @@ def atualizar_dataset(
     coluna 'latencia_prevista_ms' no arquivo CSV oficial, preservando as
     demais colunas para consumo das semanas seguintes (Semana 3).
 
+    As colunas calculadas pela Semana 3 (erros e severidade) são descartadas,
+    pois dependem da previsão e ficariam desatualizadas.
+
     Args:
         modelo (LinearRegression): Modelo treinado.
         df (pd.DataFrame): DataFrame completo.
@@ -376,7 +397,7 @@ def atualizar_dataset(
     if features is None:
         features = FEATURES_PADRAO
 
-    df_atualizado = df.copy()
+    df_atualizado = df.copy().drop(columns=COLUNAS_DERIVADAS_SEMANA_3, errors="ignore")
     previsoes = modelo.predict(df_atualizado[features])
     df_atualizado["latencia_prevista_ms"] = np.round(previsoes, 2)
 
@@ -483,7 +504,7 @@ def menu():
         print("   SCIC - MÓDULO DE MACHINE LEARNING (Semana 2)")
         print("="*50)
         print("1 - Treinar modelo e exibir métricas de performance")
-        print("2 - Gerar e salvar gráficos operacionais (Figura 3)")
+        print("2 - Gerar e salvar gráficos operacionais (Figura 2)")
         print("3 - Atualizar base 'dados_aurora_siger.csv'")
         print("4 - Executar pipeline completo de Machine Learning")
         print("0 - Sair")
