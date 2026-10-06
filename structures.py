@@ -1,29 +1,51 @@
-"""
-structures.py | Aurora Siger (Semana 4)
-
-Responsabilidades deste módulo:
-    *   Implementar no módulo `structures.py` a classe `AlertHeap` (fila de prioridade com rotinas explícitas de `heapify-up` e `heapify-down`) 
-        consumindo os alertas da Semana 3 para ordenar e extrair os eventos mais críticos em $O(\log N)$. 
-    *   Implementar a estrutura `PrefixTrie` (árvore de prefixos) com métodos de inserção, busca exata e autocomplete para indexação rápida de 
-        nomes de módulos e códigos hexadecimais de sensores da colônia.
 
 """
+    structures.py | Aurora Siger (Semana 4)
 
+    Responsabilidades deste módulo:
+        *   Implementar no módulo `structures.py` a classe `AlertHeap` (fila de prioridade com rotinas explícitas de `heapify-up` e `heapify-down`) 
+            consumindo os alertas da Semana 3 para ordenar e extrair os eventos mais críticos em $O(\log N)$. 
+        *   Implementar a estrutura `PrefixTrie` (árvore de prefixos) com métodos de inserção, busca exata e autocomplete para indexação rápida de 
+            nomes de módulos e códigos hexadecimais de sensores da colônia.
+
+"""
 from numerical_analysis import * 
 
-# classe AlertHeap: fila de prioridade dos alertas, ordena e extrai os mais criticos
+
+# ---------------------------------------------------------------------------------------------------------
+# Classe AlertHeap: fila de prioridade dos alertas, ordena e extrai os mais críticos
+# ---------------------------------------------------------------------------------------------------------
+
 class AlertHeap:
     def __init__(self):
-        self.alertas = []          # o heap
-        self.lista_ordenada = []   # resultado do heapsort
+        self.alertas = []  #heap 
+        self.lista_ordenada = []
 
-    # critério de comparação dos alertas para identificar qual o prioritário
     def comparar(self, alerta):
+        '''
+            Critério de comparação dos alertas para identificar qual o prioritário
+        '''
         return (alerta["severidade_alerta"], -alerta["prioridade"], alerta["erro_absoluto"])
 
-    # heapify_up: pega o elemento na posicao i e sobe comparando com o pai
-    # troca enquanto ele for maior que o pai, para quando achar o lugar
+    def formatar(self, alerta):
+        '''
+            Critério de formatação dos alertas
+
+        '''
+        return (
+            f"Modulo: {alerta['modulo_nome']} | "
+            f"Sensor: {alerta['sensor_hex_id']} | "
+            f"Severidade: {alerta['severidade_alerta']} | "
+            f"Prioridade: {alerta['prioridade']} | "
+            f"Erro: {alerta['erro_absoluto']} ms"
+        )
+
     def heapify_up(self, i):
+        '''
+            Resumo: heapify_up 
+
+            Lógica: pega o elemento na posição i e sobe comparando com o pai, ou seja, realiza comparações e trocas até achar um pai maior ou igual a ele
+        '''
         while i > 0:
 
             pai = (i - 1) // 2
@@ -37,9 +59,13 @@ class AlertHeap:
                 break
         return self.alertas
 
-    # heapify_down: pega o elemento na posicao i e desce trocando com o maior filho
-    # para quando ele for maior que os dois filhos (ou nao tiver filhos)
     def heapify_down(self, i):
+        '''
+            Resumo: heapify_down
+
+            Lógica: pega o elemento na posição i e desce trocando com o maior filho, ou seja, realiza comparações e trocas até que seja menor que os dois filhos ou não tenha filhos
+
+        '''
         n = len(self.alertas)
         while True:
 
@@ -62,76 +88,115 @@ class AlertHeap:
                 break
         return self.alertas
 
-    # coloca o alerta no final e sobe ate o lugar certo usando o heapify_up
     def inserir(self, alerta):
+        '''
+            Resumo: coloca o alerta no final e sobe ate o lugar certo usando o heapify_up
+        '''
         self.alertas.append(alerta)
         self.heapify_up(len(self.alertas) - 1)
 
-    # devolve qual o alerta com a maior prioridade no momento sem alterar nenhum dado
     def alerta_prioritario(self):
+        '''
+            Resumo: devolve qual o alerta com a maior prioridade no momento sem alterar nenhum dado do heap
+        '''
         if len(self.alertas) == 0:
             return None
         return self.alertas[0]
 
-    # tira o alerta mais critico do heap e devolve
     def remover_alerta_prioritario(self):
-        if len(self.alertas) != 0:   
-            inicio = self.alertas[0]   
-            fim = self.alertas.pop()   
+        '''
+            Resumo: devolve qual o alerta com a maior prioridade no momento e tira o alerta mais crítico do heap
+        '''
+        if len(self.alertas) == 0:
+            return None
 
-        if len(self.alertas) > 0:  # se so tinha 1 nao sobra nada pra reaolocar
+        inicio = self.alertas[0]   
+        fim = self.alertas.pop()   
+
+        if len(self.alertas) > 0:  
             self.alertas[0] = fim      
             self.heapify_down(0) 
+
         return inicio
 
-    # monta um heap novo com a lista e tira um por um (do mais crítico pro menos crítico)
-    def heapsort(self, lista):
-        self.alertas = []
-        self.lista_ordenada = []
+    def heapsort(self, lista=None, limpar=True):
+        '''
+            Resumo: tira os alertas do heap um por um (do mais critico pro menos crítico)
 
-        for alerta in lista:
-            self.inserir(alerta)
+            Logica:  limpar = True -> zera o heap e monta de novo com a lista recebida
+                   limpar = False -> usa o heap como ele está (sem reinserir nada) e só esvazia ele
+        '''
+        if limpar:
+            self.alertas = []
+            for alerta in lista:
+                self.inserir(alerta)
 
-        while len(self.alertas) > 0:
-            self.lista_ordenada.append(self.remover_alerta_prioritario())
+        ordenados = []
 
-        return self.lista_ordenada
+        while self.alertas:
+            ordenados.append(self.remover_alerta_prioritario())
 
+        self.lista_ordenada = ordenados
+
+        return ordenados
 # ---------------------------------------------------------------------------------------------------------
-# classes trie: inserem e buscam palavras por prefixo, usadas pra indexar
-# nomes de modulos e codigos hexadecimais de sensores da colonia
+# Classes Trie: inserem e buscam palavras por prefixo, usadas pra indexar nomes de modulos e códigos 
+# hexadecimais de sensores da colônia
 # ---------------------------------------------------------------------------------------------------------
 
-# guarda os filhos (um por letra) e se ali termina uma palavra
 class TrieNode:
+
     def __init__(self):
         self.filhos = {}
-        self.fim = False
+        self.fim = False 
 
 class PrefixTrie:
     def __init__(self):
-        self.root = TrieNode()
-        self.palavra_og = {}   # guarda a palavra com a escrita original
+        self.root = TrieNode() # Cria um novo nó 
+        self.palavra_og = {}   # Guarda a palavra com a escrita original
 
-    # insere a palavra letra por letra e cria nós que faltam
     def inserir_palavra(self, palavra):
+        '''
+            Resumo: insere a palavra letra por letra e cria nós que faltam
+
+            Lógica: percorre cada letra da palavra (já em minúsculo) e cria um nó para ela caso ainda não exista. Quando chega na última letra, marca esse nó como o fim da palavra
+            p.fim = True). Por último verifica se a palavra em minúsculo já existe como chave no dicionário palavra_og. Caso não exista, guarda a palavra com a escrita original (como 
+            veio do CSV) como valor
+
+        '''
+
         p = self.root
-        for letra in palavra:
+        for letra in palavra.lower():
             if letra not in p.filhos:
                 p.filhos[letra] = TrieNode()
             p = p.filhos[letra]
         p.fim = True
 
-    # obtém os dados do arquivo CSV e adiciona eles em novos valores na Trie
+        if palavra.lower() not in self.palavra_og:
+            self.palavra_og[palavra.lower()] = palavra
+
     def inserir_df(self, df, colunas=("modulo_nome", "sensor_hex_id")):
+        '''
+            Resumo: obtém os dados do arquivo CSV e adiciona eles em novos valores na Trie 
+
+            Lógica: pega cada coluna do arquivo CSV, armazena cada valor em uma variável (original) e transforma o valor em string (para manter todos os dados formatados).
+            Depois manda a palavra como veio para a função inserir_palavra, que cuida de transformar em minúsculo para a trie e de guardar a escrita original no dicionário palavra_og
+
+        '''
+
         for coluna in colunas:
             for valor in df[coluna]:
                 original = str(valor)
-                self.inserir_palavra(original.lower())
-                self.palavra_og[original.lower()] = original
+                self.inserir_palavra(original)
 
-    # busca palavra exata: True se existe e False se não
     def buscar(self, palavra):
+        '''
+            Resumo: busca pela palavra exata 
+
+            Lógica: armazena a palavra em letras minúsculas e faz verificações em cada uma das letras da palavra. A partir do momento que não encontra alguma letra,
+            entende que a palavra não existe e retorna False. Quando termina todas as verificações com sucesso, retorna True (p.fim)
+
+        '''
         palavra = palavra.lower()
         p = self.root
 
@@ -142,8 +207,37 @@ class PrefixTrie:
 
         return p.fim
 
-    # devolve todas as palavras que comecam com o prefixo em ordem alfabetica
+    def buscar_interativo(self):
+        '''
+            Resumo: versão interativa do buscar 
+
+            Lógica: usuário insere a palavra que deseja buscar. Esse input é formatado: os espaços iniciais e finais são ignorados e todas as letras ficam minúsculas. 
+            Se o usuário digitar "sair", a função é encerrada. Caso contrário, o código procura pela palavra através da função buscar. 
+            Quando encontra, devolve a palavra encontrada e se não encontrar, permite que o usuário procure novamente até que ele opte por sair ou encontre a palavra.
+
+        '''
+        while True:
+            busca = input('Insira a palavra que deseja buscar (insira "sair" para sair da busca): ').strip().lower()
+            if busca == "sair":
+                return None
+
+            if not self.buscar(busca): 
+                print("A palavra não foi encontrada. Tente novamente.")
+                continue  
+
+            print("A palavra encontrada foi", self.palavra_og[busca])
+            return self.palavra_og[busca]
+
     def autocomplete(self, prefixo):
+        '''
+            Resumo: devolve todas as palavras que começam com o prefixo em ordem alfabética 
+
+            Lógica: armazena o prefixo em letras minúsculas e, de modo semelhante a função buscar, procura nos nós cada letra do prefixo. Caso alguma letra não seja 
+            encontrada, devolve uma lista vazia. Se encontra todas, parte do nó onde o prefixo termina e percorre tudo que vem abaixo usando uma pilha. Sempre que um 
+            nó marca o fim de uma palavra, o código busca a escrita original no dicionário palavra_og e adiciona no resultado. No final ordena a lista e devolve
+
+        '''
+
         prefixo = prefixo.lower()
         p = self.root
         for letra in prefixo:
@@ -165,3 +259,37 @@ class PrefixTrie:
 
         resultado.sort()
         return resultado
+
+    def autocomplete_interativo(self):
+        '''
+            Resumo: versão interativa do autocomplete: pede o prefixo, mostra as sugestões numeradas, pede que o usuário escolha e devolve a palavra escolhida
+
+            Lógica: usuário insere a palavra que deseja buscar. Esse input é formatado: os espaços iniciais e finais são ignorados e todas as letras ficam minúsculas. 
+            Se o usuário digitar "sair", a função é encerrada. Caso contrário, o código procura pela palavra através da função autocomplete e armazena o(s) resultado(s)
+            na variável resultado. Depois disso, verifica o tamanho da variável resultado. Se for igual a 0, indica que não foram encontradas palavras que atendam ao prefixo e
+            permite que o usuário faça uma nova busca. Caso contrário, devolve na tela as opções ordenadas em números seguindo a ordem alfabética. O usuário então deve indicar
+            um número. Esse input passa por uma verificação e ou devolve a palavra selecionada ou permite que o usuário faça uma nova busca
+        '''
+        while True:
+            busca_autocomplete = input('Insira o prefixo (insira "sair" para sair da busca): ').strip().lower()
+            if busca_autocomplete == "sair":
+                return None
+
+            resultado = self.autocomplete(busca_autocomplete) 
+
+            if len(resultado) == 0:
+                print("Não foram encontradas palavras que atendam ao prefixo. Tente novamente.")
+                continue
+
+            for i in range(len(resultado)):
+                print(i + 1, "-", resultado[i])
+
+            escolha = input("Selecione um número para completar a palavra: ").strip()
+
+            if escolha.isdigit() and 1 <= int(escolha) <= len(resultado):
+                palavra = resultado[int(escolha) - 1]  # int pq input vem como string (se por int no input pode acabar dando erro)
+                print("A palavra encontrada foi", palavra)
+                return palavra
+            print("Número inválido. Tente novamente.")
+
+
