@@ -10,7 +10,7 @@ print("=== Verificação do gerenciamento de alertas ===")
 print("\n=== TESTE 1: Verificação do heapsort ===")
 
 df, alertas = processar_dataset(salvar=False)
-print("✓ Registros carregados: {len(df)}")
+print(f"✓ Registros carregados: {len(df)}")
 
 heap = AlertHeap()
 ordenados = heap.heapsort(alertas)
@@ -31,7 +31,7 @@ for alerta in alertas:
 assert len(heap.alertas) == len(alertas)
 for i in range(1, len(heap.alertas)):
     pai = (i - 1) // 2
-    assert heap.comparar(heap.alertas[pai]) >= heap.comparar(heap.alertas[i]), f"Pai menor que filho na posição i"
+    assert heap.comparar(heap.alertas[pai]) >= heap.comparar(heap.alertas[i]), f"Pai menor que filho na posição {i}"
 print("✓ Inserção de alertas válida")
 
 
