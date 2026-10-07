@@ -335,7 +335,7 @@ def interpretar_metricas(
         mae_base = metricas_baseline["MAE"]
         reducao = (1 - mae / mae_base) * 100 if mae_base > 0 else 0.0
         relatorio.append(
-            f"  - BASELINE (prever sempre a média do treino): MAE {mae_base:.2f} ms | R² {metricas_baseline['R2']:.2f}."
+            f"  - BASELINE (prever sempre a média do treino): MAE {mae_base:.2f} ms | R² {metricas_baseline['R2']:.3f}."
             f"\n    A regressão reduz o MAE em {reducao:.0f}% em relação a essa referência."
         )
 

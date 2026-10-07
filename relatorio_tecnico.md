@@ -174,9 +174,10 @@ azuis) separados dos de **teste** (losangos vermelhos), que são os que geram as
 - **Comparação com o baseline:** um modelo que ignora tensão e corrente e prevê sempre a média
   erra 5,57 ms em média (R² ≈ 0). A regressão **reduz o MAE em 52%**, então as grandezas
   elétricas de fato ajudam a prever a latência.
-- **RMSE de 3,58 ms** contra MAE de 2,65 ms: a razão é 1,35, abaixo do limite de 1,5, então no
-  conjunto de teste os erros são relativamente homogêneos. Mesmo assim o RMSE é maior que o MAE,
-  sinal de que alguns registros erram mais que a média.
+- **RMSE de 3,58 ms** contra MAE de 2,65 ms: a razão é 1,35, abaixo do limite de 1,5, então não
+  há poucos erros enormes dominando a média. Mas ela fica acima de 1,25 (o valor típico de erros
+  aleatórios), sinal de que alguns registros erram mais que a média. Uma razão baixa não descarta
+  viés: são justamente os registros do Habitat e do Laboratório, como mostram os resíduos.
 - **R² de 0,67:** o modelo explica cerca de dois terços da variação da latência; o restante vem de
   fatores que ele não enxerga. É um resultado moderado, não excelente.
 - **Um número sozinho não basta.** Um R² alto não garantiria um bom modelo: ele pode esconder um

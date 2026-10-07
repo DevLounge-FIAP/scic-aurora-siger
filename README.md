@@ -149,7 +149,8 @@ python teste_structures.py
 ```
 
 O `teste_structures.py` termina com duas demonstrações interativas (autocomplete e busca exata):
-digite `sair` para encerrá-las. Os testes de ML e de análise numérica trabalham com o CSV da pasta.
+digite `sair` para encerrá-las. Os testes leem o CSV da pasta, mas **nenhum deles o altera**: o
+pipeline completo do `teste_ml.py` roda sobre uma cópia temporária.
 
 ## Limitações conhecidas
 
