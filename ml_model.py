@@ -6,8 +6,9 @@ Descrição:
     Este módulo implementa o pipeline de previsão de latência de transmissão dos módulos
     da colônia marciana Aurora Siger utilizando Regressão Linear com Scikit-Learn.
     Realiza a divisão entre dados de treino e teste, calcula obrigatoriamente as métricas
-    MAE, MSE, RMSE e R², exporta gráficos de dispersão e análise de resíduos (conforme Figura 2
-    do enunciado) e atualiza o dataset oficial com a coluna calculada 'latencia_prevista_ms'.
+    MAE, MSE, RMSE e R², compara o modelo com um baseline e com alternativas via AIC/BIC,
+    exporta gráficos de dispersão e análise de resíduos (painel da Figura 3 do enunciado)
+    e atualiza o dataset oficial com a coluna calculada 'latencia_prevista_ms'.
 """
 
 import os
@@ -45,6 +46,13 @@ TARGET_PADRAO = "latencia_observada_ms"
 
 # Acima dessa razão RMSE/MAE, consideramos que há erros grandes concentrados em poucos módulos
 LIMIAR_RAZAO_RMSE_MAE = 1.5
+
+# Conjuntos de features comparados por AIC/BIC (o oficial é FEATURES_PADRAO)
+CANDIDATOS_MODELOS = {
+    "Só tensão": ["tensao_v"],
+    "Tensão + corrente (oficial)": FEATURES_PADRAO,
+    "Tensão + corrente + potência": FEATURES_PADRAO + ["potencia_w"],
+}
 
 # Colunas da Semana 3 dependem da previsão; se a previsão mudar, elas ficam obsoletas
 COLUNAS_DERIVADAS_SEMANA_3 = ["erro_absoluto", "erro_relativo", "diferenca_ms", "severidade_alerta"]
@@ -158,14 +166,127 @@ def calcular_metricas(y_real, y_pred) -> dict:
     }
 
 
-def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> str:
+def calcular_baseline(y_train, y_test) -> dict:
+    """
+    Calcula as métricas de um modelo de referência (baseline) que ignora as
+    features e prevê sempre a média da latência de treino. A regressão só
+    tem valor se superar essa referência mínima (Figura 2, passo 4 do enunciado).
+
+    Args:
+        y_train: Variável-alvo de treino (usada só para tirar a média).
+        y_test: Variável-alvo de teste.
+
+    Returns:
+        dict: MAE, MSE, RMSE e R² do baseline no conjunto de teste.
+    """
+    y_pred_baseline = np.full(len(y_test), float(np.mean(y_train)))
+    return calcular_metricas(y_test, y_pred_baseline)
+
+
+def calcular_aic_bic(n: int, rss: float, k: int) -> tuple:
+    """
+    AIC e BIC de uma regressão linear com erros gaussianos:
+        AIC = n·ln(RSS/n) + 2k        BIC = n·ln(RSS/n) + k·ln(n)
+    onde RSS é a soma dos resíduos ao quadrado no treino e k o número de
+    parâmetros (coeficientes + intercepto). Menor é melhor; os dois punem
+    variáveis extras, e o BIC pune com mais rigor (parcimônia).
+
+    Args:
+        n (int): Número de amostras de treino.
+        rss (float): Soma dos quadrados dos resíduos no treino.
+        k (int): Número de parâmetros estimados.
+
+    Returns:
+        tuple: (aic, bic)
+    """
+    termo_ajuste = n * np.log(rss / n)
+    return termo_ajuste + 2 * k, termo_ajuste + k * np.log(n)
+
+
+def comparar_modelos(df: pd.DataFrame, candidatos: dict = None, random_state: int = 42) -> list:
+    """
+    Compara conjuntos de features alternativos com AIC, BIC e métricas de teste,
+    usando a mesma divisão treino/teste do modelo oficial. Justifica a escolha
+    de tensão + corrente pelo critério de parcimônia.
+
+    Args:
+        df (pd.DataFrame): DataFrame completo.
+        candidatos (dict, opcional): {nome do modelo: lista de features}.
+        random_state (int): Mesma semente do modelo oficial.
+
+    Returns:
+        list: Um dicionário por modelo com AIC, BIC, MAE e R² de teste.
+    """
+    if candidatos is None:
+        candidatos = CANDIDATOS_MODELOS
+
+    # Potência derivada pela Lei de Ohm (P = V × I), usada só nesta comparação
+    df_comp = df.copy()
+    df_comp["potencia_w"] = df_comp["tensao_v"] * df_comp["corrente_a"]
+
+    resultados = []
+    for nome, features in candidatos.items():
+        X_train, X_test, y_train, y_test, _, _ = preparar_dados(
+            df_comp, features=features, random_state=random_state
+        )
+        modelo = treinar_modelo(X_train, y_train)
+        rss = float(np.sum((y_train - modelo.predict(X_train)) ** 2))
+        aic, bic = calcular_aic_bic(len(y_train), rss, len(features) + 1)
+        metricas = calcular_metricas(y_test, modelo.predict(X_test))
+        resultados.append({
+            "modelo": nome,
+            "n_variaveis": len(features),
+            "AIC": round(float(aic), 2),
+            "BIC": round(float(bic), 2),
+            "MAE": metricas["MAE"],
+            "R2": metricas["R2"]
+        })
+
+    return resultados
+
+
+def formatar_comparacao_modelos(resultados: list) -> str:
+    """
+    Monta a tabela de comparação AIC/BIC para exibição no terminal.
+
+    Args:
+        resultados (list): Lista retornada por comparar_modelos.
+
+    Returns:
+        str: Tabela formatada com a conclusão da comparação.
+    """
+    linhas = []
+    linhas.append("\n=======================================================")
+    linhas.append("   COMPARAÇÃO DE MODELOS (AIC / BIC) - MENOR É MELHOR")
+    linhas.append("=======================================================")
+    linhas.append(f"  {'Modelo':<30}{'AIC':>9}{'BIC':>9}{'MAE':>8}{'R²':>8}")
+    for r in resultados:
+        linhas.append(f"  {r['modelo']:<30}{r['AIC']:>9.2f}{r['BIC']:>9.2f}{r['MAE']:>8.2f}{r['R2']:>8.3f}")
+
+    melhor_aic = min(resultados, key=lambda r: r["AIC"])["modelo"]
+    melhor_bic = min(resultados, key=lambda r: r["BIC"])["modelo"]
+    linhas.append("-------------------------------------------------------")
+    linhas.append(f"  Menor AIC: {melhor_aic} | Menor BIC: {melhor_bic}")
+    linhas.append("  Acrescentar uma variável só compensa se reduzir AIC/BIC;")
+    linhas.append("  caso contrário, fica o modelo mais simples (parcimônia).")
+    linhas.append("=======================================================\n")
+    return "\n".join(linhas)
+
+
+def interpretar_metricas(
+    metricas: dict,
+    rotulo: str = "Conjunto de Teste",
+    metricas_baseline: dict = None
+) -> str:
     """
     Gera uma interpretação crítica das métricas calculadas, conforme
-    exigência da Seção 1.3 do enunciado da Fase 6.
+    exigência da Seção 5.3 do enunciado da Fase 6.
 
     Args:
         metricas (dict): Dicionário retornado por calcular_metricas.
         rotulo (str): Identificador do conjunto analisado.
+        metricas_baseline (dict, opcional): Métricas do baseline (calcular_baseline)
+            para mostrar quanto o modelo melhora sobre a referência mínima.
 
     Returns:
         str: Texto formatado com a análise diagnóstica.
@@ -188,7 +309,7 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
     relatorio.append(f"  • RMSE (Raiz do Erro Quadrático):    {rmse:.2f} ms")
     relatorio.append(f"  • R²   (Coeficiente de Determinação): {r2:.4f}")
     relatorio.append(f"-------------------------------------------------------")
-    relatorio.append(f"  DIAGNÓSTICO CRÍTICO (ENUNCIADO, SEÇÃO 1.3):")
+    relatorio.append(f"  DIAGNÓSTICO CRÍTICO (ENUNCIADO, SEÇÃO 5.3):")
 
     if r2 >= 0.85:
         relatorio.append(f"  - O R² ({r2:.2f}) indica excelente capacidade de explicação da variabilidade da latência.")
@@ -205,7 +326,17 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
         )
     else:
         relatorio.append(
-            f"  - Os erros são homogêneos: RMSE = {razao_rmse_mae:.2f}x o MAE, sem desvios aberrantes."
+            f"  - RMSE = {razao_rmse_mae:.2f}x o MAE (abaixo de {LIMIAR_RAZAO_RMSE_MAE:.1f}x): não há poucos"
+            f"\n    erros enormes dominando a média. Isso NÃO descarta viés sistemático em"
+            f"\n    algum módulo; confira o gráfico de resíduos."
+        )
+
+    if metricas_baseline is not None:
+        mae_base = metricas_baseline["MAE"]
+        reducao = (1 - mae / mae_base) * 100 if mae_base > 0 else 0.0
+        relatorio.append(
+            f"  - BASELINE (prever sempre a média do treino): MAE {mae_base:.2f} ms | R² {metricas_baseline['R2']:.3f}."
+            f"\n    A regressão reduz o MAE em {reducao:.0f}% em relação a essa referência."
         )
 
     relatorio.append(
@@ -217,23 +348,41 @@ def interpretar_metricas(metricas: dict, rotulo: str = "Conjunto de Teste") -> s
     return "\n".join(relatorio)
 
 
+def _dispersar(ax, x, y, mascara_teste, cor, rotulo, s=85):
+    """
+    Desenha os pontos de um gráfico. Se houver máscara de teste, separa
+    visualmente os registros de treino (usados no ajuste) dos de teste
+    (que geram as métricas oficiais).
+    """
+    estilo = dict(s=s, edgecolor="black", alpha=0.85, zorder=5)
+    if mascara_teste is None:
+        ax.scatter(x, y, color=cor, label=rotulo, **estilo)
+        return
+    ax.scatter(x[~mascara_teste], y[~mascara_teste], color="#9ecae1", label="Treino (usado no ajuste)", **estilo)
+    ax.scatter(x[mascara_teste], y[mascara_teste], color="#d62728", marker="D",
+               label="Teste (métricas oficiais)", **estilo)
+
+
 def gerar_graficos(
     y_real,
     y_pred,
     nomes_modulos: list = None,
-    pasta_saida: str = PASTA_GRAFICOS_PADRAO
+    pasta_saida: str = PASTA_GRAFICOS_PADRAO,
+    mascara_teste=None
 ) -> list:
     """
     Gera e exporta para a pasta designada os gráficos de performance exigidos:
     1. Gráfico de Dispersão: Valores Reais vs. Valores Previstos (com linha ideal y = x).
     2. Gráfico de Análise de Resíduos: Dispersão dos resíduos (y - y_hat) com linha zero.
-    3. Painel Integrado de Performance Operacional (Figura 2 do enunciado).
+    3. Painel Integrado de Performance Operacional (Figura 3 do enunciado).
 
     Args:
         y_real: Vetor de valores observados.
         y_pred: Vetor de valores preditos.
         nomes_modulos (list, opcional): Nomes dos módulos para anotação.
         pasta_saida (str): Pasta de destino das imagens.
+        mascara_teste (array de bool, opcional): True nas linhas do conjunto de teste,
+            para colorir treino e teste de forma diferente.
 
     Returns:
         list: Lista de caminhos dos arquivos de imagem gerados.
@@ -244,6 +393,8 @@ def gerar_graficos(
     y_real = np.array(y_real)
     y_pred = np.array(y_pred)
     residuos = y_real - y_pred
+    if mascara_teste is not None:
+        mascara_teste = np.asarray(mascara_teste, dtype=bool)
 
     # -------------------------------------------------------------
     # 1. Gráfico de Dispersão: Reais vs. Previstos
@@ -251,7 +402,7 @@ def gerar_graficos(
     caminho_dispersao = os.path.join(pasta_saida, "dispersao_real_previsto.png")
     fig, ax = plt.subplots(figsize=(7, 6))
 
-    ax.scatter(y_real, y_pred, color="#1f77b4", s=90, edgecolor="black", alpha=0.85, zorder=5, label="Módulos da Colônia")
+    _dispersar(ax, y_real, y_pred, mascara_teste, "#1f77b4", "Módulos da Colônia", s=90)
 
     # Linha ideal de 45 graus (y = x)
     min_val = min(y_real.min(), y_pred.min()) - 3
@@ -302,7 +453,7 @@ def gerar_graficos(
     fig, ax = plt.subplots(figsize=(7, 5))
 
     ax.axhline(0, color="red", linestyle="--", linewidth=1.5, label="Resíduo Zero (Erro Nulo)", zorder=3)
-    ax.scatter(y_pred, residuos, color="#d62728", s=85, edgecolor="black", alpha=0.85, zorder=5, label=r"Resíduo ($y - \hat{y}$)")
+    _dispersar(ax, y_pred, residuos, mascara_teste, "#d62728", r"Resíduo ($y - \hat{y}$)")
 
     if nomes_modulos is not None and len(nomes_modulos) == len(y_real):
         if len(y_real) <= 15:
@@ -339,13 +490,13 @@ def gerar_graficos(
     caminhos_gerados.append(caminho_residuos)
 
     # -------------------------------------------------------------
-    # 3. Painel Integrado de Performance Operacional (Painel da Figura 2)
+    # 3. Painel Integrado de Performance Operacional (Painel da Figura 3)
     # -------------------------------------------------------------
     caminho_painel = os.path.join(pasta_saida, "painel_performance_ml.png")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5))
 
     # Painel 1: Dispersão
-    ax1.scatter(y_real, y_pred, color="#2ca02c", s=80, edgecolor="black", zorder=5, label="Módulos")
+    _dispersar(ax1, y_real, y_pred, mascara_teste, "#2ca02c", "Módulos", s=80)
     ax1.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=1.6, label="Ideal ($y = x$)")
     ax1.set_title("A) Dispersão Observada vs. Prevista")
     ax1.set_xlabel("Latência Observada (ms)")
@@ -355,7 +506,7 @@ def gerar_graficos(
 
     # Painel 2: Resíduos
     ax2.axhline(0, color="black", linestyle="--", linewidth=1.4, label="Linha Neutra")
-    ax2.scatter(y_pred, residuos, color="#ff7f0e", s=80, edgecolor="black", zorder=5, label="Resíduos")
+    _dispersar(ax2, y_pred, residuos, mascara_teste, "#ff7f0e", "Resíduos", s=80)
     ax2.set_title(r"B) Análise de Resíduos ($e = y - \hat{y}$)")
     ax2.set_xlabel("Latência Prevista (ms)")
     ax2.set_ylabel("Resíduo (ms)")
@@ -452,23 +603,28 @@ def executar_pipeline_completo(
     # 4. Avaliação
     y_pred_test = modelo.predict(X_test)
     metricas_teste = calcular_metricas(y_test, y_pred_test)
+    metricas_baseline = calcular_baseline(y_train, y_test)
+    comparacao_modelos = comparar_modelos(df)
 
     # Avaliação sobre base completa para o painel de telemetria
     y_pred_full = modelo.predict(X_full)
     metricas_completo = calcular_metricas(y_full, y_pred_full)
 
     if exibir_detalhes:
-        print(interpretar_metricas(metricas_teste, rotulo="Conjunto de Teste"))
+        print(interpretar_metricas(metricas_teste, rotulo="Conjunto de Teste", metricas_baseline=metricas_baseline))
+        print(formatar_comparacao_modelos(comparacao_modelos))
         print(f"Métricas globais no dataset completo:")
         print(f"  MAE: {metricas_completo['MAE']} ms | RMSE: {metricas_completo['RMSE']} ms | R²: {metricas_completo['R2']}")
 
     # 5. Gráficos
+    # Os gráficos mostram as 80 linhas, destacando as 20 de teste (métricas oficiais)
     nomes_modulos = df["modulo_nome"].tolist() if "modulo_nome" in df.columns else None
     graficos_salvos = gerar_graficos(
         y_real=y_full,
         y_pred=y_pred_full,
         nomes_modulos=nomes_modulos,
-        pasta_saida=pasta_graficos
+        pasta_saida=pasta_graficos,
+        mascara_teste=df.index.isin(X_test.index)
     )
     if exibir_detalhes:
         print(f"\n✓ Gráficos exportados com sucesso para '{pasta_graficos}/':")
@@ -489,6 +645,8 @@ def executar_pipeline_completo(
         "modelo": modelo,
         "metricas_teste": metricas_teste,
         "metricas_completo": metricas_completo,
+        "metricas_baseline": metricas_baseline,
+        "comparacao_modelos": comparacao_modelos,
         "graficos": graficos_salvos,
         "dataframe": df_atualizado
     }
@@ -504,7 +662,7 @@ def menu():
         print("   SCIC - MÓDULO DE MACHINE LEARNING (Semana 2)")
         print("="*50)
         print("1 - Treinar modelo e exibir métricas de performance")
-        print("2 - Gerar e salvar gráficos operacionais (Figura 2)")
+        print("2 - Gerar e salvar gráficos operacionais (Figura 3)")
         print("3 - Atualizar base 'dados_aurora_siger.csv'")
         print("4 - Executar pipeline completo de Machine Learning")
         print("0 - Sair")
@@ -518,14 +676,15 @@ def menu():
             mod = treinar_modelo(X_train, y_train)
             pred = mod.predict(X_test)
             m = calcular_metricas(y_test, pred)
-            print(interpretar_metricas(m, "Amostra de Teste"))
+            print(interpretar_metricas(m, "Amostra de Teste", calcular_baseline(y_train, y_test)))
+            print(formatar_comparacao_modelos(comparar_modelos(df)))
         elif opcao == "2":
             df = carregar_dados()
-            X_train, _, y_train, _, X_full, y_full = preparar_dados(df)
+            X_train, X_test, y_train, _, X_full, y_full = preparar_dados(df)
             mod = treinar_modelo(X_train, y_train)
             pred = mod.predict(X_full)
             nomes = df["modulo_nome"].tolist() if "modulo_nome" in df.columns else None
-            graficos = gerar_graficos(y_full, pred, nomes)
+            graficos = gerar_graficos(y_full, pred, nomes, mascara_teste=df.index.isin(X_test.index))
             print(f"\n✓ Gráficos gerados com sucesso:")
             for g in graficos:
                 print(f"  -> {g}")
