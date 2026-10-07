@@ -160,15 +160,20 @@ precisa ser medido.
 |---|---|---|---|---|
 | Teste (20 registros) | 2,648 | 12,836 | 3,583 | 0,675 |
 | Base completa (80) | 2,519 | 11,818 | 3,438 | 0,707 |
+| Baseline no teste (prevê sempre a média do treino) | 5,567 | 39,534 | 6,288 | −0,001 |
 
 Gráficos gerados em `graficos_ou_imagens/`: dispersão real × previsto, análise de resíduos e
-painel de performance.
+painel de performance. Os gráficos mostram as 80 linhas, com os registros de **treino** (círculos
+azuis) separados dos de **teste** (losangos vermelhos), que são os que geram as métricas oficiais.
 
 ![Painel de performance](graficos_ou_imagens/painel_performance_ml.png)
 
 ### 5.1 Interpretação das métricas
 
 - **MAE de 2,65 ms:** em média o modelo erra cerca de 2,6 ms numa latência média de 50,8 ms, uns 5%.
+- **Comparação com o baseline:** um modelo que ignora tensão e corrente e prevê sempre a média
+  erra 5,57 ms em média (R² ≈ 0). A regressão **reduz o MAE em 52%**, então as grandezas
+  elétricas de fato ajudam a prever a latência.
 - **RMSE de 3,58 ms** contra MAE de 2,65 ms: a razão é 1,35, abaixo do limite de 1,5, então no
   conjunto de teste os erros são relativamente homogêneos. Mesmo assim o RMSE é maior que o MAE,
   sinal de que alguns registros erram mais que a média.
@@ -195,8 +200,34 @@ painel de performance.
 4. **Pouco dado e dados simulados:** 80 registros, gerados por fórmula.
 5. **Fora da faixa, o modelo extrapola mal.** Com 500 V e 3 A ele prevê cerca de 1397 ms, um
    absurdo físico. Por isso o menu avisa quando os valores saem da faixa observada.
-6. **Não foram comparados modelos alternativos** (AIC, BIC, Grid Search ou Random Search), pois
-   o enunciado só pede isso "quando aplicável". Fica como melhoria.
+6. **A comparação de modelos foi limitada** a conjuntos de variáveis elétricas (seção 5.3). Não
+   foi usado Grid Search nem Random Search, porque a regressão linear simples não tem
+   hiperparâmetros a ajustar; essas técnicas fariam sentido com modelos regularizados (Ridge,
+   Lasso) ou mais complexos.
+
+### 5.3 Comparação de modelos (AIC e BIC)
+
+Para justificar a escolha das variáveis, três modelos foram ajustados com a mesma divisão
+treino/teste e comparados por **AIC** e **BIC**, calculados no treino:
+AIC = n·ln(RSS/n) + 2k e BIC = n·ln(RSS/n) + k·ln(n), em que k é o número de parâmetros.
+Menor é melhor; os dois punem variáveis extras, e o BIC pune com mais rigor.
+
+| Modelo | AIC | BIC | MAE teste (ms) | R² teste |
+|---|---|---|---|---|
+| Só tensão | 190,72 | 194,91 | 3,34 | 0,442 |
+| **Tensão + corrente (oficial)** | **152,43** | **158,72** | **2,65** | **0,675** |
+| Tensão + corrente + potência (P = V × I) | 154,02 | 162,40 | 2,61 | 0,673 |
+
+- Acrescentar a **corrente** melhora muito o modelo: o AIC cai cerca de 38 pontos.
+- Acrescentar a **potência** quase não muda o erro de teste e **aumenta** AIC e BIC. Pelo princípio
+  da parcimônia, a variável extra não se paga, e o modelo oficial fica com tensão e corrente.
+- **Teste exploratório:** incluir o **tipo do módulo** como variável (codificação one-hot) derruba
+  o AIC para cerca de 7,8 e leva o R² de teste a 0,977 (MAE de 0,79 ms), o que confirma que o
+  viés da seção 5.2 vem de o modelo não saber qual é o módulo. Essa versão **não foi adotada** no
+  protótipo porque mudaria as previsões usadas pela análise de erros, pela severidade e pelo heap;
+  ela fica registrada como a principal melhoria (seção 11).
+
+A tabela é impressa pelo `ml_model.py` (função `comparar_modelos`) e pela opção 5 do menu.
 
 ## 6. Priorização de alertas com heap
 
@@ -425,8 +456,10 @@ automáticas do tipo "módulo defeituoso", já que o desvio pode vir do modelo e
 
 **Melhorias**
 
-1. Incluir o **tipo ou o nome do módulo** como variável do modelo para reduzir o viés.
-2. Separar uma **base de validação** e comparar modelos (AIC, BIC, Grid Search ou Random Search).
+1. Incluir o **tipo do módulo** como variável do modelo para eliminar o viés. O teste exploratório
+   da seção 5.3 indica R² de teste de 0,977 e MAE de 0,79 ms.
+2. Separar uma **base de validação** e testar modelos regularizados (Ridge, Lasso), ajustando os
+   hiperparâmetros com Grid Search ou Random Search.
 3. Considerar o **tempo desde o registro** na prioridade dos alertas, para dar peso a desvios que se repetem.
 4. Calibrar o bônus de status da severidade com a equipe de operação.
 5. Registrar a **tendência** da latência por módulo para uma manutenção preditiva de verdade.

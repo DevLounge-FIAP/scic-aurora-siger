@@ -176,7 +176,8 @@ def mostrar_metricas():
     garantir_base()
     titulo("5 - AVALIAÇÃO DO MODELO (MAE, MSE, RMSE, R²)")
     r = estado["resultado_ml"]
-    print(ml_model.interpretar_metricas(r["metricas_teste"], "Conjunto de Teste"))
+    print(ml_model.interpretar_metricas(r["metricas_teste"], "Conjunto de Teste", r["metricas_baseline"]))
+    print(ml_model.formatar_comparacao_modelos(r["comparacao_modelos"]))
     m = r["metricas_completo"]
     print(f"Base completa: MAE={m['MAE']} ms | RMSE={m['RMSE']} ms | R²={m['R2']}")
     print("\nGráficos salvos em:")

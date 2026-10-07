@@ -105,6 +105,8 @@ o que mostra que a regressão linear só é confiável dentro da faixa em que fo
 
 ```
 MAE, MSE, RMSE e R² calculados; R² = 0.6749 | RMSE = 3.5827 ms
+Baseline (média): MAE 5.57 ms -> a regressão reduz o MAE em 52%
+Comparação AIC/BIC: tensão + corrente tem o menor AIC (152.43) e BIC (158.72)
 ```
 
 **Opção 6 - alerta mais urgente:**
