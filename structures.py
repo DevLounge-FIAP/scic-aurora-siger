@@ -1,5 +1,5 @@
 
-"""
+r"""
     structures.py | Aurora Siger (Semana 4)
 
     Responsabilidades deste módulo:
@@ -128,7 +128,7 @@ class AlertHeap:
         '''
         if limpar:
             self.alertas = []
-            for alerta in lista:
+            for alerta in (lista or []):
                 self.inserir(alerta)
 
         ordenados = []
